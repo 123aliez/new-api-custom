@@ -381,3 +381,31 @@ func AdminDeleteUserSubscription(c *gin.Context) {
 	}
 	common.ApiSuccess(c, nil)
 }
+
+// AdminUpgradeUserSubscription upgrades an active subscription to a different plan.
+type AdminUpgradeUserSubscriptionRequest struct {
+	NewPlanId int `json:"new_plan_id"`
+}
+
+func AdminUpgradeUserSubscription(c *gin.Context) {
+	subId, _ := strconv.Atoi(c.Param("id"))
+	if subId <= 0 {
+		common.ApiErrorMsg(c, "无效的订阅ID")
+		return
+	}
+	var req AdminUpgradeUserSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.NewPlanId <= 0 {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	msg, err := model.AdminUpgradeUserSubscription(subId, req.NewPlanId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if msg != "" {
+		common.ApiSuccess(c, gin.H{"message": msg})
+		return
+	}
+	common.ApiSuccess(c, nil)
+}

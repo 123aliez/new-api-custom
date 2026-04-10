@@ -3502,5 +3502,19 @@
     "，当前无生效订阅，将自动使用钱包": ", no active subscription. Wallet will be used automatically.",
     "，时间：": ",time:",
     "，点击更新": ", click Update"
-  }
+  },
+  "升级": "Upgrade",
+  "升级订阅": "Upgrade Subscription",
+  "升级成功": "Upgrade successful",
+  "升级失败": "Upgrade failed",
+  "当前套餐": "Current Plan",
+  "过期时间": "Expiry Time",
+  "升级后过期时间不变，额度将重置为新套餐额度": "Expiry time remains unchanged. Quota will be reset to the new plan quota.",
+  "选择目标套餐": "Select target plan",
+  "没有可升级的套餐（需要相同有效期的其他套餐）": "No upgradable plans (requires other plans with the same duration)",
+  "全部用户": "Total Users",
+  "活跃用户": "Active Users",
+  "有订阅": "With Subscription",
+  "有余额": "With Balance",
+  "无活跃": "Inactive"
 }

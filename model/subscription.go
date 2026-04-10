@@ -399,6 +399,70 @@ func getUserGroupByIdTx(tx *gorm.DB, userId int) (string, error) {
 	return group, nil
 }
 
+// AdminUpgradeUserSubscription changes an active subscription's plan to a different plan
+// with the same duration_unit and duration_value. Keeps original start_time and end_time.
+func AdminUpgradeUserSubscription(userSubscriptionId int, newPlanId int) (string, error) {
+	if userSubscriptionId <= 0 || newPlanId <= 0 {
+		return "", errors.New("invalid parameters")
+	}
+	newPlan, err := GetSubscriptionPlanById(newPlanId)
+	if err != nil {
+		return "", fmt.Errorf("new plan not found: %w", err)
+	}
+	now := common.GetTimestamp()
+	var resultMsg string
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var sub UserSubscription
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("id = ?", userSubscriptionId).First(&sub).Error; err != nil {
+			return err
+		}
+		if sub.Status != "active" {
+			return errors.New("subscription is not active")
+		}
+		if sub.EndTime > 0 && sub.EndTime < now {
+			return errors.New("subscription has expired")
+		}
+		if sub.PlanId == newPlanId {
+			return errors.New("already on this plan")
+		}
+		oldPlan, err := GetSubscriptionPlanById(sub.PlanId)
+		if err != nil {
+			return fmt.Errorf("old plan not found: %w", err)
+		}
+		if oldPlan.DurationUnit != newPlan.DurationUnit || oldPlan.DurationValue != newPlan.DurationValue{
+			return fmt.Errorf("duration mismatch: old=%s/%d, new=%s/%d",
+				oldPlan.DurationUnit, oldPlan.DurationValue,
+				newPlan.DurationUnit, newPlan.DurationValue)
+		}
+		updates := map[string]interface{}{
+			"plan_id":      newPlanId,
+			"amount_total": newPlan.TotalAmount,
+			"amount_used":  0,
+			"updated_at":   now,
+		}
+		newUpgradeGroup := strings.TrimSpace(newPlan.UpgradeGroup)
+		if newUpgradeGroup != "" {
+			updates["upgrade_group"] = newUpgradeGroup
+			if err := tx.Model(&User{}).Where("id = ?", sub.UserId).
+				Update("group", newUpgradeGroup).Error; err != nil {
+				return err
+			}
+			resultMsg = fmt.Sprintf("已升级到 %s，用户分组变更为 %s", newPlan.Title, newUpgradeGroup)
+		} else {
+			resultMsg = fmt.Sprintf("已升级到 %s", newPlan.Title)
+		}
+		if err := tx.Model(&sub).Updates(updates).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return resultMsg, nil
+}
+
 func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now int64) (string, error) {
 	if tx == nil || sub == nil {
 		return "", errors.New("invalid downgrade args")

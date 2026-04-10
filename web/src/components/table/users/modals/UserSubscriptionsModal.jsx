@@ -82,9 +82,15 @@ const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
-  const [subs, setSubs] = useState([]);
+const [subs, setSubs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+
+  // Upgrade state
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradingSub, setUpgradingSub] = useState(null);
+  const [upgradeTargetPlanId, setUpgradeTargetPlanId] = useState(null);
+  const [upgrading, setUpgrading] = useState(false);
 
   const planTitleMap = useMemo(() => {
     const map = new Map();
@@ -219,6 +225,58 @@ const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {
     });
   };
 
+  const openUpgradeModal = (sub) => {
+    setUpgradingSub(sub);
+    setUpgradeTargetPlanId(null);
+    setUpgradeModalVisible(true);
+  };
+
+  const upgradablePlans = useMemo(() => {
+if (!upgradingSub || !plans.length) return [];
+    const currentPlanId = upgradingSub.plan_id;
+    const currentPlan = plans.find((p) => p?.plan?.id === currentPlanId)?.plan;
+    if (!currentPlan) return [];
+    return plans
+      .filter(
+        (p) =>
+          p?.plan?.id !== currentPlanId &&
+          p?.plan?.duration_unit === currentPlan.duration_unit &&
+          p?.plan?.duration_value === currentPlan.duration_value &&
+          p?.plan?.enabled,
+      )
+      .map((p) => ({
+        label: `${p?.plan?.title || ''} (${convertUSDToCurrency(
+          Number(p?.plan?.price_amount || 0),
+          2,
+        )})`,
+        value: p?.plan?.id,
+}));
+  }, [upgradingSub, plans]);
+
+  const doUpgrade = async () => {
+    if (!upgradingSub?.id || !upgradeTargetPlanId) return;
+    setUpgrading(true);
+    try {
+      const res = await API.post(
+        `/api/subscription/admin/user_subscriptions/${upgradingSub.id}/upgrade`,
+        { new_plan_id: upgradeTargetPlanId },
+);
+      if (res.data?.success) {
+        const msg = res.data?.data?.message;
+        showSuccess(msg ? msg : t('升级成功'));
+        setUpgradeModalVisible(false);
+        await loadUserSubscriptions();
+onSuccess?.();
+      } else {
+        showError(res.data?.message || t('升级失败'));
+      }
+    } catch (e) {
+      showError(t('请求失败'));
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
   const deleteSubscription = (subId) => {
     Modal.confirm({
       title: t('确认删除'),
@@ -326,6 +384,15 @@ const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {
           return (
             <Space>
               <Button
+size='small'
+                type='primary'
+                theme='light'
+                disabled={!isActive || isCancelled}
+                onClick={() => openUpgradeModal(sub)}
+              >
+                {t('升级')}
+              </Button>
+              <Button
                 size='small'
                 type='warning'
                 theme='light'
@@ -337,10 +404,10 @@ const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {
               <Button
                 size='small'
                 type='danger'
-                theme='light'
+theme='light'
                 onClick={() => deleteSubscription(sub?.id)}
               >
-                {t('删除')}
+{t('删除')}
               </Button>
             </Space>
           );
@@ -425,6 +492,39 @@ const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {
           }
           size='middle'
         />
+
+        {/* Upgrade Modal */}
+        <Modal
+          title={t('升级订阅')}
+          visible={upgradeModalVisible}
+          onCancel={() => setUpgradeModalVisible(false)}
+          onOk={doUpgrade}
+          okButtonProps={{ loading: upgrading, disabled: !upgradeTargetPlanId }}
+centered
+        >
+          <div className='mb-3'>
+            <Text>{t('当前套餐')}: {upgradingSub ? (planTitleMap.get(upgradingSub.plan_id) || `#${upgradingSub.plan_id}`) : '-'}</Text>
+          </div>
+          <div className='mb-3'>
+            <Text>{t('过期时间')}: {formatTs(upgradingSub?.end_time)}</Text>
+          </div>
+          <div className='mb-1'>
+            <Text type='secondary'>{t('升级后过期时间不变，额度将重置为新套餐额度')}</Text>
+          </div>
+          <Select
+            placeholder={t('选择目标套餐')}
+            optionList={upgradablePlans}
+            value={upgradeTargetPlanId}
+            onChange={setUpgradeTargetPlanId}
+            filter
+            style={{ width: '100%', marginTop: 12 }}
+          />
+          {upgradablePlans.length === 0 && (
+            <div className='mt-2'>
+              <Text type='danger'>{t('没有可升级的套餐（需要相同有效期的其他套餐）')}</Text>
+            </div>
+          )}
+        </Modal>
       </div>
     </SideSheet>
   );

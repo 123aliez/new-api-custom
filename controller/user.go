@@ -990,6 +990,31 @@ func (l *topUpTryLock) TryLock() bool {
 	}
 }
 
+// GetUserStats returns aggregated user statistics for admin dashboard.
+func GetUserStats(c *gin.Context) {
+	now := common.GetTimestamp()
+	var totalUsers, usersWithBalance, usersWithActiveSub, activeUsers int64
+
+	model.DB.Model(&model.User{}).Where("deleted_at IS NULL").Count(&totalUsers)
+	model.DB.Model(&model.User{}).Where("deleted_at IS NULL AND quota > 0").Count(&usersWithBalance)
+	model.DB.Raw(
+		"SELECT COUNT(DISTINCT u.id) FROM users u JOIN user_subscriptions us ON u.id = us.user_id WHERE u.deleted_at IS NULL AND us.status = ? AND us.end_time >?",
+		"active", now,
+	).Scan(&usersWithActiveSub)
+	model.DB.Raw(
+		"SELECT COUNT(DISTINCT u.id) FROM users u WHERE u.deleted_at IS NULL AND (u.quota > 0 OR EXISTS (SELECT 1 FROM user_subscriptions us WHERE us.user_id = u.id AND us.status = ? AND us.end_time > ?))",
+		"active", now,
+	).Scan(&activeUsers)
+
+	common.ApiSuccess(c, gin.H{
+		"total_users":totalUsers,
+		"active_users":            activeUsers,
+		"inactive_users":          totalUsers - activeUsers,
+		"users_with_balance":usersWithBalance,
+		"users_with_subscription": usersWithActiveSub,
+	})
+}
+
 func (l *topUpTryLock) Unlock() {
 	select {
 	case <-l.ch:
