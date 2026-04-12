@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty, Tag, Typography } from '@douyinfe/semi-ui';
+import { Empty, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
@@ -96,34 +96,20 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
         title: t('输入'),
         dataIndex: 'prompt_tokens',
         key: 'prompt_tokens',
-        width: 120,
-        render: (value) => renderNumber(value || 0),
-      },
-      {
-        title: t('缓存读'),
-        dataIndex: 'other',
-        key: 'cache_read',
-        width: 100,
-        render: (value) => {
-          const cacheTokens = Number(value?.cache_tokens || 0);
-          return cacheTokens > 0 ? (
-            <Tag color='teal' size='small' shape='circle'>{renderNumber(cacheTokens)}</Tag>
-          ) : (
-            <span>-</span>
-          );
-        },
-      },
-      {
-        title: t('缓存写'),
-        dataIndex: 'other',
-        key: 'cache_write',
-        width: 100,
-        render: (value) => {
-          const writeTokens = Number(value?.cache_write_tokens || 0);
-          return writeTokens > 0 ? (
-            <Tag color='violet' size='small' shape='circle'>{renderNumber(writeTokens)}</Tag>
-          ) : (
-            <span>-</span>
+        width: 150,
+        render: (value, record) => {
+          const other = record.other || {};
+          const cacheTokens = Number(other.cache_tokens || 0);
+          const hasCache = cacheTokens > 0;
+          return (
+            <div style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.2 }}>
+              <span>{renderNumber(value || 0)}</span>
+              {hasCache && (
+                <span style={{ marginTop: 2, fontSize: 11, color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
+                  {t('缓存读')} {cacheTokens.toLocaleString()}
+                </span>
+              )}
+            </div>
           );
         },
       },
@@ -139,7 +125,13 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
         dataIndex: 'quota',
         key: 'quota',
         width: 120,
-        render: (value) => renderQuota(value || 0, 6),
+        render: (value, record) => {
+          const isError = record?.other?.is_error;
+          if (isError) {
+            return <Text type='danger'>{renderQuota(value || 0, 6)}</Text>;
+          }
+          return renderQuota(value || 0, 6);
+        },
       },
       {
         title: t('用时'),
@@ -165,28 +157,18 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
           ),
       },
       {
-        title: t('状态'),
-        dataIndex: 'other',
-        key: 'status',
-        width: 80,
-        render: (value) => {
-          const isError = value?.is_error;
-          return isError ? (
-            <Tag color='red' size='small' shape='circle'>{t('失败')}</Tag>
-          ) : (
-            <Tag color='green' size='small' shape='circle'>{t('成功')}</Tag>
-          );
-        },
-      },
-      {
-        title: t('错误信息'),
+        title: t('详情'),
         dataIndex: 'content',
-        key: 'error',
+        key: 'detail',
         width: 250,
         render: (value, record) => {
           if (!record?.other?.is_error || !value) return <span>-</span>;
           const msg = value.length > 120 ? value.substring(0, 120) + '...' : value;
-          return <Text type='danger' size='small'>{msg}</Text>;
+          return (
+            <Tooltip content={value}>
+              <Text type='danger' size='small'>{msg}</Text>
+            </Tooltip>
+          );
         },
       },
     ],

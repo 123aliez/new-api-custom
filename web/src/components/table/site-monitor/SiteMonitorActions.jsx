@@ -43,9 +43,6 @@ const SiteMonitorActions = ({
         <Tag color='teal' size='large' shape='circle'>
           {t('缓存读')}: {renderNumber(stats.cacheReadTokens)}
         </Tag>
-        <Tag color='violet' size='large' shape='circle'>
-          {t('缓存写')}: {renderNumber(stats.cacheWriteTokens)}
-        </Tag>
         <Tag color='cyan' size='large' shape='circle'>
           {t('输出 Tokens')}: {renderNumber(stats.completionTokens)}
         </Tag>
