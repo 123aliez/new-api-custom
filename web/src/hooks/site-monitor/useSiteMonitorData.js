@@ -31,7 +31,18 @@ export const useSiteMonitorData = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefreshRaw] = useState(() => {
+    const saved = localStorage.getItem('site_monitor_auto_refresh');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const setAutoRefresh = useCallback((value) => {
+    const resolved = typeof value === 'function' ? value : value;
+    setAutoRefreshRaw((prev) => {
+      const next = typeof resolved === 'function' ? resolved(prev) : resolved;
+      localStorage.setItem('site_monitor_auto_refresh', String(next));
+      return next;
+    });
+  }, []);
   const [compactMode, setCompactMode] = useTableCompactMode('site-monitor');
   const fetchingRef = useRef(false);
 
