@@ -438,8 +438,26 @@ func AdminUpgradeUserSubscription(userSubscriptionId int, newPlanId int) (string
 		updates := map[string]interface{}{
 			"plan_id":      newPlanId,
 			"amount_total": newPlan.TotalAmount,
-			"amount_used":  0,
 			"updated_at":   now,
+		}
+		// Preserve remaining quota across upgrade
+		remain := sub.AmountTotal - sub.AmountUsed
+		if sub.AmountTotal <= 0 || remain < 0 {
+			remain = 0
+		}
+		var newUsed int64
+		if newPlan.TotalAmount > 0 {
+			newUsed = newPlan.TotalAmount - remain
+			if newUsed < 0 {
+				newUsed = 0
+			}
+		}
+		updates["amount_used"] = newUsed
+		// Recalculate reset times based on new plan
+		nextReset := calcNextResetTime(time.Unix(sub.StartTime, 0), newPlan, sub.EndTime)
+		updates["next_reset_time"] = nextReset
+		if nextReset > 0 && sub.LastResetTime <= 0 {
+			updates["last_reset_time"] = sub.StartTime
 		}
 		newUpgradeGroup := strings.TrimSpace(newPlan.UpgradeGroup)
 		if newUpgradeGroup != "" {

@@ -32,6 +32,31 @@ func GetAllLogs(c *gin.Context) {
 	return
 }
 
+func GetSiteMonitorLogs(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	logs, err := model.GetRecentSiteMonitorLogs(limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"items":      logs,
+			"updated_at": common.GetTimestamp(),
+		},
+	})
+}
+
 func GetUserLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	userId := c.GetInt("id")

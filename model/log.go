@@ -327,6 +327,54 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	return logs, total, err
 }
 
+func GetRecentSiteMonitorLogs(limit int) (logs []*Log, err error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	err = LOG_DB.
+		Where("type = ?", LogTypeConsume).
+		Order("id desc").
+		Limit(limit).
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	aliasMap := make(map[int]int)
+	for i := range logs {
+		logs[i].Username = ""
+		logs[i].TokenName = ""
+		logs[i].Ip = ""
+
+		originalUserId := logs[i].UserId
+		if _, ok := aliasMap[originalUserId]; !ok {
+			aliasMap[originalUserId] = len(aliasMap) + 1
+		}
+		alias := aliasMap[originalUserId]
+		logs[i].UserId = alias
+		logs[i].TokenId = 0
+		logs[i].RequestId = ""
+		logs[i].ChannelName = ""
+		otherMap, _ := common.StrToMap(logs[i].Other)
+		if otherMap == nil {
+			otherMap = map[string]interface{}{}
+		}
+		delete(otherMap, "admin_info")
+		delete(otherMap, "stream_status")
+		delete(otherMap, "reject_reason")
+		otherMap["user_alias_index"] = alias
+		logs[i].Other = common.MapToJsonStr(otherMap)
+		logs[i].Content = ""
+		logs[i].Group = ""
+	}
+
+	return logs, nil
+}
+
 const logSearchCountLimit = 10000
 
 func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string) (logs []*Log, total int64, err error) {
