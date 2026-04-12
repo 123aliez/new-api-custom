@@ -336,7 +336,7 @@ func GetRecentSiteMonitorLogs(limit int) (logs []*Log, err error) {
 	}
 
 	err = LOG_DB.
-		Where("type = ?", LogTypeConsume).
+		Where("type IN ?", []int{LogTypeConsume, LogTypeError}).
 		Order("id desc").
 		Limit(limit).
 		Find(&logs).Error
@@ -367,8 +367,12 @@ func GetRecentSiteMonitorLogs(limit int) (logs []*Log, err error) {
 		delete(otherMap, "stream_status")
 		delete(otherMap, "reject_reason")
 		otherMap["user_alias_index"] = alias
+		otherMap["is_error"] = logs[i].Type == LogTypeError
 		logs[i].Other = common.MapToJsonStr(otherMap)
-		logs[i].Content = ""
+		// Preserve error message for error logs, clear for consume logs
+		if logs[i].Type != LogTypeError {
+			logs[i].Content = ""
+		}
 		logs[i].Group = ""
 	}
 

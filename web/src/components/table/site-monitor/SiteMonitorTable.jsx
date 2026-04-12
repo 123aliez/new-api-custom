@@ -18,13 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty, Tag } from '@douyinfe/semi-ui';
+import { Empty, Tag, Typography } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
 import CardTable from '../../common/ui/CardTable';
 import { renderNumber, renderQuota } from '../../../helpers';
+
+const { Text } = Typography;
 
 const userColors = [
   'amber',
@@ -161,6 +163,31 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
               {t('非流')}
             </Tag>
           ),
+      },
+      {
+        title: t('状态'),
+        dataIndex: 'other',
+        key: 'status',
+        width: 80,
+        render: (value) => {
+          const isError = value?.is_error;
+          return isError ? (
+            <Tag color='red' size='small' shape='circle'>{t('失败')}</Tag>
+          ) : (
+            <Tag color='green' size='small' shape='circle'>{t('成功')}</Tag>
+          );
+        },
+      },
+      {
+        title: t('错误信息'),
+        dataIndex: 'content',
+        key: 'error',
+        width: 250,
+        render: (value, record) => {
+          if (!record?.other?.is_error || !value) return <span>-</span>;
+          const msg = value.length > 120 ? value.substring(0, 120) + '...' : value;
+          return <Text type='danger' size='small'>{msg}</Text>;
+        },
       },
     ],
     [t],

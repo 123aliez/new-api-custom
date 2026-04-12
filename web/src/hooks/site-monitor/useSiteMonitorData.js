@@ -106,6 +106,7 @@ export const useSiteMonitorData = () => {
         const other = record.other || {};
         acc.cacheReadTokens += Number(other.cache_tokens || 0);
         acc.cacheWriteTokens += Number(other.cache_write_tokens || 0);
+        if (other.is_error) acc.errorCount += 1;
         return acc;
       },
       {
@@ -115,6 +116,7 @@ export const useSiteMonitorData = () => {
         quota: 0,
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
+        errorCount: 0,
       },
     );
   }, [records]);

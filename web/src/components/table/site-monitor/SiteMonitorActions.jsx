@@ -52,6 +52,11 @@ const SiteMonitorActions = ({
         <Tag color='orange' size='large' shape='circle'>
           {t('消耗额度')}: {renderQuota(stats.quota)}
         </Tag>
+        {stats.errorCount > 0 && (
+          <Tag color='red' size='large' shape='circle'>
+            {t('失败')}: {stats.errorCount}
+          </Tag>
+        )}
       </Space>
 
       <Space wrap>
