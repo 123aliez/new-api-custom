@@ -86,6 +86,7 @@ export const getRedemptionsColumns = ({
   redemptions,
   activePage,
   showDeleteRedemptionModal,
+  showRevokeModal,
 }) => {
   return [
     {
@@ -107,7 +108,16 @@ export const getRedemptionsColumns = ({
     {
       title: t('额度'),
       dataIndex: 'quota',
-      render: (text) => {
+      render: (text, record) => {
+        if (Number(record.plan_id) > 0) {
+          return (
+            <div>
+              <Tag color='blue' shape='circle'>
+                {`${t('订阅套餐')}: ${record.plan_title || `#${record.plan_id}`}`}
+              </Tag>
+            </div>
+          );
+        }
         return (
           <div>
             <Tag color='grey' shape='circle'>
@@ -142,7 +152,7 @@ export const getRedemptionsColumns = ({
       title: '',
       dataIndex: 'operate',
       fixed: 'right',
-      width: 205,
+      width: 225,
       render: (text, record) => {
         // Create dropdown menu items for more operations
         const moreMenuItems = [
@@ -174,6 +184,20 @@ export const getRedemptionsColumns = ({
               manageRedemption(record.id, REDEMPTION_ACTIONS.ENABLE, record);
             },
             disabled: record.status === REDEMPTION_STATUS.USED,
+          });
+        }
+
+        if (
+          record.status === REDEMPTION_STATUS.USED &&
+          Number(record.plan_id) > 0
+        ) {
+          moreMenuItems.unshift({
+            node: 'item',
+            name: t('撤销订阅'),
+            type: 'warning',
+            onClick: () => {
+              showRevokeModal(record);
+            },
           });
         }
 

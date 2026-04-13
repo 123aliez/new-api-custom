@@ -1007,10 +1007,10 @@ func GetUserStats(c *gin.Context) {
 	).Scan(&activeUsers)
 
 	common.ApiSuccess(c, gin.H{
-		"total_users":totalUsers,
+		"total_users":             totalUsers,
 		"active_users":            activeUsers,
 		"inactive_users":          totalUsers - activeUsers,
-		"users_with_balance":usersWithBalance,
+		"users_with_balance":      usersWithBalance,
 		"users_with_subscription": usersWithActiveSub,
 	})
 }
@@ -1050,7 +1050,7 @@ func TopUp(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	quota, err := model.Redeem(req.Key, id)
+	redeemResult, err := model.Redeem(req.Key, id)
 	if err != nil {
 		if errors.Is(err, model.ErrRedeemFailed) {
 			common.ApiErrorI18n(c, i18n.MsgRedeemFailed)
@@ -1059,10 +1059,30 @@ func TopUp(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	quota := 0
+	message := ""
+	meta := gin.H{
+		"mode": model.RedeemModeQuota,
+	}
+	if redeemResult != nil {
+		quota = redeemResult.Quota
+		meta["mode"] = redeemResult.Mode
+		if redeemResult.PlanId > 0 {
+			meta["plan_id"] = redeemResult.PlanId
+		}
+		if redeemResult.PlanTitle != "" {
+			meta["plan_title"] = redeemResult.PlanTitle
+			message = fmt.Sprintf("已开通订阅套餐：%s", redeemResult.PlanTitle)
+		}
+		if redeemResult.UserSubscriptionId > 0 {
+			meta["user_subscription_id"] = redeemResult.UserSubscriptionId
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "",
+		"message": message,
 		"data":    quota,
+		"meta":    meta,
 	})
 }
 

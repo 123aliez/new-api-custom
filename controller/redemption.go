@@ -58,6 +58,17 @@ func GetRedemption(c *gin.Context) {
 	return
 }
 
+func validatePlanId(planId int) error {
+	if planId <= 0 {
+		return nil
+	}
+	_, err := model.GetSubscriptionPlanById(planId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func AddRedemption(c *gin.Context) {
 	redemption := model.Redemption{}
 	err := c.ShouldBindJSON(&redemption)
@@ -81,16 +92,25 @@ func AddRedemption(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": msg})
 		return
 	}
+	if err := validatePlanId(redemption.PlanId); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	var keys []string
 	for i := 0; i < redemption.Count; i++ {
 		key := common.GetUUID()
+		quota := redemption.Quota
+		if redemption.PlanId > 0 {
+			quota = 0
+		}
 		cleanRedemption := model.Redemption{
 			UserId:      c.GetInt("id"),
 			Name:        redemption.Name,
 			Key:         key,
 			CreatedTime: common.GetTimestamp(),
-			Quota:       redemption.Quota,
+			Quota:       quota,
 			ExpiredTime: redemption.ExpiredTime,
+			PlanId:      redemption.PlanId,
 		}
 		err = cleanRedemption.Insert()
 		if err != nil {
@@ -144,9 +164,18 @@ func UpdateRedemption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": msg})
 			return
 		}
+		if err := validatePlanId(redemption.PlanId); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 		// If you add more fields, please also update redemption.Update()
 		cleanRedemption.Name = redemption.Name
-		cleanRedemption.Quota = redemption.Quota
+		cleanRedemption.PlanId = redemption.PlanId
+		if redemption.PlanId > 0 {
+			cleanRedemption.Quota = 0
+		} else {
+			cleanRedemption.Quota = redemption.Quota
+		}
 		cleanRedemption.ExpiredTime = redemption.ExpiredTime
 	}
 	if statusOnly != "" {
@@ -163,6 +192,24 @@ func UpdateRedemption(c *gin.Context) {
 		"data":    cleanRedemption,
 	})
 	return
+}
+
+func RevokeRedemption(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorMsg(c, "无效的兑换码ID")
+		return
+	}
+	msg, err := model.RevokeRedemptionSubscription(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if msg != "" {
+		common.ApiSuccess(c, gin.H{"message": msg})
+		return
+	}
+	common.ApiSuccess(c, nil)
 }
 
 func DeleteInvalidRedemption(c *gin.Context) {

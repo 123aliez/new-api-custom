@@ -41,6 +41,7 @@ import {
   Avatar,
   Row,
   Col,
+  Select,
 } from '@douyinfe/semi-ui';
 import {
   IconCreditCard,
@@ -55,6 +56,8 @@ const EditRedemptionModal = (props) => {
   const { t } = useTranslation();
   const isEdit = props.editingRedemption.id !== undefined;
   const [loading, setLoading] = useState(isEdit);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plans, setPlans] = useState([]);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
 
@@ -63,6 +66,7 @@ const EditRedemptionModal = (props) => {
     quota: 100000,
     count: 1,
     expired_time: null,
+    plan_id: undefined,
   });
 
   const handleCancel = () => {
@@ -79,12 +83,45 @@ const EditRedemptionModal = (props) => {
       } else {
         data.expired_time = new Date(data.expired_time * 1000);
       }
+      if (!data.plan_id) {
+        data.plan_id = undefined;
+      }
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
     }
     setLoading(false);
   };
+
+  const loadPlans = async () => {
+    setPlansLoading(true);
+    try {
+      const res = await API.get('/api/subscription/admin/plans');
+      const { success, message, data } = res.data;
+      if (success) {
+        const currentPlanId =
+          props.editingRedemption?.plan_id || props.editingRedemption?.planId;
+        const rawPlans = (data || []).map((p) => p.plan || p);
+        const nextPlans = rawPlans.filter(
+          (plan) => plan && (plan.enabled || plan.id === currentPlanId),
+        );
+        setPlans(nextPlans);
+      } else {
+        showError(message);
+        setPlans([]);
+      }
+    } catch (error) {
+      showError(error.message);
+      setPlans([]);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!props.visiable) return;
+    loadPlans();
+  }, [props.visiable, props.editingRedemption?.id]);
 
   useEffect(() => {
     if (formApiRef.current) {
@@ -105,6 +142,10 @@ const EditRedemptionModal = (props) => {
     let localInputs = { ...values };
     localInputs.count = parseInt(localInputs.count) || 0;
     localInputs.quota = parseInt(localInputs.quota) || 0;
+    localInputs.plan_id = parseInt(localInputs.plan_id) || 0;
+    if (localInputs.plan_id > 0) {
+      localInputs.quota = 0;
+    }
     localInputs.name = name;
     if (!localInputs.expired_time) {
       localInputs.expired_time = 0;
@@ -252,6 +293,25 @@ const EditRedemptionModal = (props) => {
                       />
                     </Col>
                     <Col span={24}>
+                      <Form.Select
+                        field='plan_id'
+                        label={t('订阅套餐')}
+                        placeholder={t('不绑定订阅套餐')}
+                        loading={plansLoading}
+                        showClear
+                        filter
+                        extraText={t(
+                          '选择套餐后，兑换码将为用户开通该订阅套餐，而不是充值余额。',
+                        )}
+                      >
+                        {plans.map((plan) => (
+                          <Select.Option key={plan.id} value={plan.id}>
+                            {plan.title}
+                          </Select.Option>
+                        ))}
+                      </Form.Select>
+                    </Col>
+                    <Col span={24}>
                       <Form.DatePicker
                         field='expired_time'
                         label={t('过期时间')}
@@ -292,6 +352,7 @@ const EditRedemptionModal = (props) => {
                         placeholder={t('请输入额度')}
                         style={{ width: '100%' }}
                         type='number'
+                        disabled={!!values.plan_id}
                         rules={[
                           { required: true, message: t('请输入额度') },
                           {
@@ -316,6 +377,11 @@ const EditRedemptionModal = (props) => {
                         ]}
                         showClear
                       />
+                      {values.plan_id ? (
+                        <div className='text-xs text-gray-600 mt-1'>
+                          {t('已绑定订阅套餐，额度字段不会生效')}
+                        </div>
+                      ) : null}
                     </Col>
                     {!isEdit && (
                       <Col span={12}>

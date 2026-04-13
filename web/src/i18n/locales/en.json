@@ -3511,7 +3511,14 @@
         "立即刷新": "Refresh now",
         "匿名用户": "Anonymous User",
         "输入 Tokens": "Input Tokens",
-        "输出 Tokens": "Output Tokens"
+        "输出 Tokens": "Output Tokens",
+        "不绑定订阅套餐": "Do not bind a subscription plan",
+        "选择套餐后，兑换码将为用户开通该订阅套餐，而不是充值余额。": "When a plan is selected, redeeming the code will activate that subscription plan instead of adding wallet quota.",
+        "已绑定订阅套餐，额度字段不会生效": "A subscription plan is bound, so the quota field will be ignored",
+        "撤销订阅": "Revoke Subscription",
+        "确定撤销该订阅兑换码吗？": "Revoke this subscription redemption code?",
+        "撤销后，关联订阅将立即失效，兑换码会恢复为未使用状态。": "Revoking will invalidate the linked subscription immediately and reset the redemption code to unused.",
+        "已开通订阅套餐：": "Activated subscription plan: "
     },
     "升级": "Upgrade",
     "升级订阅": "Upgrade Subscription",

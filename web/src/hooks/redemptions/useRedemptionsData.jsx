@@ -139,26 +139,43 @@ export const useRedemptionsData = () => {
           data.status = REDEMPTION_STATUS.DISABLED;
           res = await API.put('/api/redemption/?status_only=true', data);
           break;
+        case REDEMPTION_ACTIONS.REVOKE:
+          res = await API.post(`/api/redemption/${id}/revoke`);
+          break;
         default:
           throw new Error('Unknown operation type');
       }
 
-      const { success, message } = res.data;
+      const { success, message, data: responseData } = res.data;
       if (success) {
-        showSuccess(t('操作成功完成！'));
-        let redemption = res.data.data;
-        let newRedemptions = [...redemptions];
-        if (action !== REDEMPTION_ACTIONS.DELETE) {
-          record.status = redemption.status;
+        showSuccess(responseData?.message || message || t('操作成功完成！'));
+        if (
+          action === REDEMPTION_ACTIONS.ENABLE ||
+          action === REDEMPTION_ACTIONS.DISABLE
+        ) {
+          const nextStatus = responseData?.status;
+          const nextRedemptions = redemptions.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            return {
+              ...item,
+              status: nextStatus,
+            };
+          });
+          setRedemptions(nextRedemptions);
         }
-        setRedemptions(newRedemptions);
+        return true;
       } else {
         showError(message);
+        return false;
       }
     } catch (error) {
       showError(error.message);
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Refresh data

@@ -18,48 +18,50 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Modal } from '@douyinfe/semi-ui';
+import { Modal, Typography } from '@douyinfe/semi-ui';
 import { REDEMPTION_ACTIONS } from '../../../../constants/redemption.constants';
 
-const DeleteRedemptionModal = ({
+const { Text } = Typography;
+
+const RevokeSubscriptionModal = ({
   visible,
   onCancel,
   record,
   manageRedemption,
   refresh,
-  redemptions,
-  activePage,
   t,
 }) => {
   const handleConfirm = async () => {
+    if (!record?.id) {
+      return;
+    }
     const success = await manageRedemption(
       record.id,
-      REDEMPTION_ACTIONS.DELETE,
+      REDEMPTION_ACTIONS.REVOKE,
       record,
     );
     if (!success) {
       return;
     }
     await refresh();
-    setTimeout(() => {
-      if (redemptions.length === 0 && activePage > 1) {
-        refresh(activePage - 1);
-      }
-    }, 100);
     onCancel();
   };
 
   return (
     <Modal
-      title={t('确定是否要删除此兑换码？')}
+      title={t('确定撤销该订阅兑换码吗？')}
       visible={visible}
       onCancel={onCancel}
       onOk={handleConfirm}
       type='warning'
     >
-      {t('此修改将不可逆')}
+      <div className='flex flex-col gap-2'>
+        <Text>{t('撤销后，关联订阅将立即失效，兑换码会恢复为未使用状态。')}</Text>
+        <Text>{`${t('用户ID')}: ${record?.used_user_id || '-'}`}</Text>
+        <Text>{`${t('订阅套餐')}: ${record?.plan_title || `#${record?.plan_id || '-'}`}`}</Text>
+      </div>
     </Modal>
   );
 };
 
-export default DeleteRedemptionModal;
+export default RevokeSubscriptionModal;

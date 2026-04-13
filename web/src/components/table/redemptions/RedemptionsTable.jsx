@@ -26,6 +26,7 @@ import {
 } from '@douyinfe/semi-illustrations';
 import { getRedemptionsColumns, isExpired } from './RedemptionsColumnDefs';
 import DeleteRedemptionModal from './modals/DeleteRedemptionModal';
+import RevokeSubscriptionModal from './modals/RevokeSubscriptionModal';
 
 const RedemptionsTable = (redemptionsData) => {
   const {
@@ -49,11 +50,18 @@ const RedemptionsTable = (redemptionsData) => {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingRecord, setDeletingRecord] = useState(null);
+  const [showRevokeModalVisible, setShowRevokeModalVisible] = useState(false);
+  const [revokingRecord, setRevokingRecord] = useState(null);
 
   // Handle show delete modal
   const showDeleteRedemptionModal = (record) => {
     setDeletingRecord(record);
     setShowDeleteModal(true);
+  };
+
+  const showRevokeModal = (record) => {
+    setRevokingRecord(record);
+    setShowRevokeModalVisible(true);
   };
 
   // Get all columns
@@ -68,6 +76,7 @@ const RedemptionsTable = (redemptionsData) => {
       redemptions,
       activePage,
       showDeleteRedemptionModal,
+      showRevokeModal,
     });
   }, [
     t,
@@ -79,6 +88,7 @@ const RedemptionsTable = (redemptionsData) => {
     redemptions,
     activePage,
     showDeleteRedemptionModal,
+    showRevokeModal,
   ]);
 
   // Handle compact mode by removing fixed positioning
@@ -135,6 +145,15 @@ const RedemptionsTable = (redemptionsData) => {
         refresh={refresh}
         redemptions={redemptions}
         activePage={activePage}
+        t={t}
+      />
+
+      <RevokeSubscriptionModal
+        visible={showRevokeModalVisible}
+        onCancel={() => setShowRevokeModalVisible(false)}
+        record={revokingRecord}
+        manageRedemption={manageRedemption}
+        refresh={refresh}
         t={t}
       />
     </>

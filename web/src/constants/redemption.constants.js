@@ -44,4 +44,5 @@ export const REDEMPTION_ACTIONS = {
   DELETE: 'delete',
   ENABLE: 'enable',
   DISABLE: 'disable',
+  REVOKE: 'revoke',
 };

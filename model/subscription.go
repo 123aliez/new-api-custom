@@ -430,7 +430,7 @@ func AdminUpgradeUserSubscription(userSubscriptionId int, newPlanId int) (string
 		if err != nil {
 			return fmt.Errorf("old plan not found: %w", err)
 		}
-		if oldPlan.DurationUnit != newPlan.DurationUnit || oldPlan.DurationValue != newPlan.DurationValue{
+		if oldPlan.DurationUnit != newPlan.DurationUnit || oldPlan.DurationValue != newPlan.DurationValue {
 			return fmt.Errorf("duration mismatch: old=%s/%d, new=%s/%d",
 				oldPlan.DurationUnit, oldPlan.DurationValue,
 				newPlan.DurationUnit, newPlan.DurationValue)
@@ -439,20 +439,8 @@ func AdminUpgradeUserSubscription(userSubscriptionId int, newPlanId int) (string
 			"plan_id":      newPlanId,
 			"amount_total": newPlan.TotalAmount,
 			"updated_at":   now,
+			// amount_used kept unchanged on upgrade
 		}
-		// Preserve remaining quota across upgrade
-		remain := sub.AmountTotal - sub.AmountUsed
-		if sub.AmountTotal <= 0 || remain < 0 {
-			remain = 0
-		}
-		var newUsed int64
-		if newPlan.TotalAmount > 0 {
-			newUsed = newPlan.TotalAmount - remain
-			if newUsed < 0 {
-				newUsed = 0
-			}
-		}
-		updates["amount_used"] = newUsed
 		// Recalculate reset times based on new plan
 		nextReset := calcNextResetTime(time.Unix(sub.StartTime, 0), newPlan, sub.EndTime)
 		updates["next_reset_time"] = nextReset
@@ -732,6 +720,38 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	return "", nil
 }
 
+func invalidateUserSubscriptionTx(tx *gorm.DB, userSubscriptionId int, now int64) (int, string, string, error) {
+	if tx == nil {
+		return 0, "", "", errors.New("tx is nil")
+	}
+	if userSubscriptionId <= 0 {
+		return 0, "", "", errors.New("invalid userSubscriptionId")
+	}
+	cacheGroup := ""
+	downgradeGroup := ""
+	var sub UserSubscription
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Where("id = ?", userSubscriptionId).First(&sub).Error; err != nil {
+		return 0, "", "", err
+	}
+	if err := tx.Model(&sub).Updates(map[string]interface{}{
+		"status":     "cancelled",
+		"end_time":   now,
+		"updated_at": now,
+	}).Error; err != nil {
+		return 0, "", "", err
+	}
+	target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+	if err != nil {
+		return 0, "", "", err
+	}
+	if target != "" {
+		cacheGroup = target
+		downgradeGroup = target
+	}
+	return sub.UserId, cacheGroup, downgradeGroup, nil
+}
+
 // GetAllActiveUserSubscriptions returns all active subscriptions for a user.
 func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	if userId <= 0 {
@@ -803,26 +823,10 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 	downgradeGroup := ""
 	var userId int
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		var sub UserSubscription
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").
-			Where("id = ?", userSubscriptionId).First(&sub).Error; err != nil {
-			return err
-		}
-		userId = sub.UserId
-		if err := tx.Model(&sub).Updates(map[string]interface{}{
-			"status":     "cancelled",
-			"end_time":   now,
-			"updated_at": now,
-		}).Error; err != nil {
-			return err
-		}
-		target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+		var err error
+		userId, cacheGroup, downgradeGroup, err = invalidateUserSubscriptionTx(tx, userSubscriptionId, now)
 		if err != nil {
 			return err
-		}
-		if target != "" {
-			cacheGroup = target
-			downgradeGroup = target
 		}
 		return nil
 	})
