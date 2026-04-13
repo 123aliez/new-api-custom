@@ -673,6 +673,24 @@ func AppendChannelAffinityAdminInfo(c *gin.Context, adminInfo map[string]interfa
 	adminInfo["channel_affinity"] = anyInfo
 }
 
+
+// EvictCurrentAffinityCache deletes the affinity cache entry for the current request context.
+// Called when the affinity-picked channel is disabled, so subsequent requests
+// will randomly select a new available channel and build fresh affinity.
+func EvictCurrentAffinityCache(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	cacheKey, _, ok := getChannelAffinityContext(c)
+	if !ok || cacheKey == "" {
+		return
+	}
+	cache := getChannelAffinityCache()
+	if _, err := cache.DeleteMany([]string{cacheKey}); err != nil {
+		common.SysError(fmt.Sprintf("evict affinity cache failed: key=%s, err=%v", cacheKey, err))
+	}
+}
+
 func RecordChannelAffinity(c *gin.Context, channelID int) {
 	if channelID <= 0 {
 		return

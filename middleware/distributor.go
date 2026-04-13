@@ -107,6 +107,8 @@ func Distribute() func(c *gin.Context) {
 								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
 								return
 							}
+						// Affinity points to disabled channel — evict cache so future requests pick a new one
+						service.EvictCurrentAffinityCache(c)
 						} else if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 							autoGroups := service.GetUserAutoGroup(userGroup)
