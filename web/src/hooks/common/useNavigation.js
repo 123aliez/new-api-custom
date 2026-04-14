@@ -26,6 +26,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       home: true,
       console: true,
       pricing: true,
+      recharge: true,
       docs: true,
       about: true,
     };
@@ -59,6 +60,12 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
             },
           ]
         : []),
+      {
+        text: t('充值'),
+        itemKey: 'recharge',
+        isExternal: true,
+        externalLink: 'https://pay.ldxp.cn/shop/aliez',
+      },
       {
         text: t('关于'),
         itemKey: 'about',
