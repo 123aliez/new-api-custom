@@ -94,7 +94,7 @@ function buildChannelAffinityTooltip(affinity, t) {
 }
 
 // Render functions
-function renderType(type, t) {
+export function renderType(type, t) {
   switch (type) {
     case 1:
       return (
@@ -162,7 +162,7 @@ function buildStreamStatusTooltip(ss, t) {
   );
 }
 
-function renderIsStream(bool, t, streamStatus) {
+export function renderIsStream(bool, t, streamStatus) {
   const isError = streamStatus && streamStatus.status !== 'ok';
 
   if (bool) {
@@ -203,7 +203,7 @@ function renderIsStream(bool, t, streamStatus) {
   }
 }
 
-function renderUseTime(type, t) {
+export function renderUseTime(type, t) {
   const time = parseInt(type);
   if (time < 101) {
     return (
@@ -229,7 +229,7 @@ function renderUseTime(type, t) {
   }
 }
 
-function renderFirstUseTime(type, t) {
+export function renderFirstUseTime(type, t) {
   let time = parseFloat(type) / 1000.0;
   time = time.toFixed(1);
   if (time < 3) {
@@ -343,7 +343,7 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
-function getPromptCacheSummary(other) {
+export function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
   }

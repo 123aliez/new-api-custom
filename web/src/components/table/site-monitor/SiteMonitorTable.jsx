@@ -18,15 +18,20 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
+import { Empty, Tag, Typography } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
 import CardTable from '../../common/ui/CardTable';
-import { renderNumber, renderQuota } from '../../../helpers';
-
-const { Text } = Typography;
+import { renderModelTag } from '../../../helpers';
+import {
+  renderType,
+  renderUseTime,
+  renderFirstUseTime,
+  renderIsStream,
+  getPromptCacheSummary,
+} from '../usage-logs/UsageLogsColumnDefs';
 
 const userColors = [
   'amber',
@@ -45,19 +50,11 @@ const userColors = [
   'yellow',
 ];
 
-const renderUseTime = (value) => {
-  const seconds = Number(value || 0);
-  if (seconds <= 0) {
-    return <span>-</span>;
-  }
-  if (seconds < 30) {
-    return <Tag color='green' shape='circle'>{seconds}s</Tag>;
-  }
-  if (seconds < 120) {
-    return <Tag color='orange' shape='circle'>{seconds}s</Tag>;
-  }
-  return <Tag color='red' shape='circle'>{seconds}s</Tag>;
-};
+function formatTokenCount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return parsed.toLocaleString();
+}
 
 const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
   const columns = useMemo(
@@ -86,29 +83,90 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
         },
       },
       {
+        title: t('类型'),
+        dataIndex: 'type',
+        key: 'type',
+        width: 80,
+        render: (value) => renderType(value, t),
+      },
+      {
         title: t('模型'),
         dataIndex: 'model_name',
         key: 'model',
         width: 220,
-        render: (value) => value || '-',
+        render: (value) => {
+          if (!value) return '-';
+          return renderModelTag(value);
+        },
+      },
+      {
+        title: t('用时/首字'),
+        dataIndex: 'use_time',
+        key: 'use_time',
+        width: 140,
+        render: (text, record) => {
+          if (record.type !== 2 && record.type !== 5) return <></>;
+          if (record.is_stream) {
+            const other = record.other;
+            return (
+              <>
+                {renderUseTime(text, t)}
+                {renderFirstUseTime(other?.frt, t)}
+                {renderIsStream(record.is_stream, t, other?.stream_status)}
+              </>
+            );
+          }
+          return (
+            <>
+              {renderUseTime(text, t)}
+              {renderIsStream(record.is_stream, t)}
+            </>
+          );
+        },
       },
       {
         title: t('输入'),
         dataIndex: 'prompt_tokens',
         key: 'prompt_tokens',
         width: 150,
-        render: (value, record) => {
-          const other = record.other || {};
-          const cacheTokens = Number(other.cache_tokens || 0);
-          const hasCache = cacheTokens > 0;
+        render: (text, record) => {
+          if (record.type !== 0 && record.type !== 2 && record.type !== 5 && record.type !== 6) {
+            return <></>;
+          }
+          const other = record.other;
+          const cacheSummary = getPromptCacheSummary(other);
+          const hasCacheRead = (cacheSummary?.cacheReadTokens || 0) > 0;
+          const hasCacheWrite = (cacheSummary?.cacheWriteTokens || 0) > 0;
+          let cacheText = '';
+          if (hasCacheRead && hasCacheWrite) {
+            cacheText = `${t('缓存读')} ${formatTokenCount(cacheSummary.cacheReadTokens)} · ${t('写')} ${formatTokenCount(cacheSummary.cacheWriteTokens)}`;
+          } else if (hasCacheRead) {
+            cacheText = `${t('缓存读')} ${formatTokenCount(cacheSummary.cacheReadTokens)}`;
+          } else if (hasCacheWrite) {
+            cacheText = `${t('缓存写')} ${formatTokenCount(cacheSummary.cacheWriteTokens)}`;
+          }
           return (
-            <div style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <span>{renderNumber(value || 0)}</span>
-              {hasCache && (
-                <span style={{ marginTop: 2, fontSize: 11, color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
-                  {t('缓存读')} {cacheTokens.toLocaleString()}
+            <div
+              style={{
+                display: 'inline-flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                lineHeight: 1.2,
+              }}
+            >
+              <span>{text}</span>
+              {cacheText ? (
+                <span
+                  style={{
+                    marginTop: 2,
+                    fontSize: 11,
+                    color: 'var(--semi-color-text-2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {cacheText}
                 </span>
-              )}
+              ) : null}
             </div>
           );
         },
@@ -118,57 +176,68 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
         dataIndex: 'completion_tokens',
         key: 'completion_tokens',
         width: 120,
-        render: (value) => renderNumber(value || 0),
-      },
-      {
-        title: t('花费'),
-        dataIndex: 'quota',
-        key: 'quota',
-        width: 120,
-        render: (value, record) => {
-          const isError = record?.other?.is_error;
-          if (isError) {
-            return <Text type='danger'>{renderQuota(value || 0, 6)}</Text>;
-          }
-          return renderQuota(value || 0, 6);
-        },
-      },
-      {
-        title: t('用时'),
-        dataIndex: 'use_time',
-        key: 'use_time',
-        width: 100,
-        render: (value) => renderUseTime(value),
-      },
-      {
-        title: t('模式'),
-        dataIndex: 'is_stream',
-        key: 'mode',
-        width: 100,
-        render: (value) =>
-          value ? (
-            <Tag color='blue' shape='circle'>
-              {t('流')}
-            </Tag>
+        render: (text, record) => {
+          return parseInt(text) > 0 &&
+            (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
+            <>{text}</>
           ) : (
-            <Tag color='purple' shape='circle'>
-              {t('非流')}
-            </Tag>
-          ),
+            <></>
+          );
+        },
       },
       {
         title: t('详情'),
         dataIndex: 'content',
         key: 'detail',
         width: 250,
-        render: (value, record) => {
-          if (!record?.other?.is_error || !value) return <span>-</span>;
-          const msg = value.length > 120 ? value.substring(0, 120) + '...' : value;
-          return (
-            <Tooltip content={value}>
-              <Text type='danger' size='small'>{msg}</Text>
-            </Tooltip>
-          );
+        render: (text, record) => {
+          if (record.type === 5 && text) {
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 240 } },
+                  },
+                }}
+                style={{ maxWidth: 250, marginBottom: 0, color: '#ef4444' }}
+              >
+                {text}
+              </Typography.Paragraph>
+            );
+          }
+          // For consume records, show billing detail like usage logs
+          const other = record.other;
+          if (record.type === 2 && other) {
+            const segments = [];
+            const cacheTokens = other.cache_tokens || 0;
+            const modelRatio = other.model_ratio;
+            const groupRatio = other.group_ratio;
+            if (modelRatio || groupRatio) {
+              segments.push(`${t('模型倍率')} ${modelRatio || '-'}, ${t('分组')} ${groupRatio || '-'}`);
+            }
+            if (cacheTokens > 0) {
+              segments.push(`${t('缓存')} ${cacheTokens}`);
+            }
+            if (segments.length > 0) {
+              return (
+                <div style={{ maxWidth: 250, lineHeight: 1.35 }}>
+                  {segments.map((seg, i) => (
+                    <Typography.Text
+                      key={i}
+                      type='tertiary'
+                      size='small'
+                      style={{ display: 'block', fontSize: 12, marginTop: i === 0 ? 0 : 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                      {seg}
+                    </Typography.Text>
+                  ))}
+                </div>
+              );
+            }
+          }
+          return <span>-</span>;
         },
       },
     ],
