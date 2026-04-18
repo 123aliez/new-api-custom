@@ -33,6 +33,7 @@ func GetAllLogs(c *gin.Context) {
 }
 
 func GetSiteMonitorLogs(c *gin.Context) {
+	currentUserId := c.GetInt("id")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
 	if limit <= 0 {
 		limit = 100
@@ -41,7 +42,7 @@ func GetSiteMonitorLogs(c *gin.Context) {
 		limit = 100
 	}
 
-	logs, err := model.GetRecentSiteMonitorLogs(limit)
+	logs, err := model.GetRecentSiteMonitorLogs(limit, currentUserId)
 	if err != nil {
 		common.ApiError(c, err)
 		return

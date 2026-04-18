@@ -71,6 +71,13 @@ const SiteMonitorTable = ({ records, loading, compactMode, t }) => {
         key: 'user',
         width: 120,
         render: (value, record) => {
+          if (record?.username) {
+            return (
+              <Tag color='red' shape='circle'>
+                {record.username}
+              </Tag>
+            );
+          }
           const alias = Number(value || record?.other?.user_alias_index || 0);
           return (
             <Tag

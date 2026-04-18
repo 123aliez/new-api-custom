@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/types"
 
@@ -90,19 +92,26 @@ func RecordLog(userId int, logType int, content string) {
 	}
 }
 
+func shouldRecordLogIP(c *gin.Context, userId int) bool {
+	if c != nil {
+		if userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
+			return userSetting.RecordIpLog
+		}
+	}
+	settingMap, err := GetUserSetting(userId, false)
+	if err != nil {
+		return false
+	}
+	return settingMap.RecordIpLog
+}
+
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
 	otherStr := common.MapToJsonStr(other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
-		}
-	}
+	needRecordIp := shouldRecordLogIP(c, userId)
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
@@ -153,17 +162,10 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	if !common.LogConsumeEnabled {
 		return
 	}
-	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
 	otherStr := common.MapToJsonStr(params.Other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
-		}
-	}
+	needRecordIp := shouldRecordLogIP(c, userId)
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
@@ -327,7 +329,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	return logs, total, err
 }
 
-func GetRecentSiteMonitorLogs(limit int) (logs []*Log, err error) {
+func GetRecentSiteMonitorLogs(limit int, currentUserId int) (logs []*Log, err error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -346,7 +348,9 @@ func GetRecentSiteMonitorLogs(limit int) (logs []*Log, err error) {
 
 	aliasMap := make(map[int]int)
 	for i := range logs {
-		logs[i].Username = ""
+		if !(currentUserId > 0 && logs[i].UserId == currentUserId) {
+			logs[i].Username = ""
+		}
 		logs[i].TokenName = ""
 		logs[i].Ip = ""
 
