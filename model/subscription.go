@@ -141,6 +141,48 @@ func InvalidateSubscriptionPlanCache(planId int) {
 	_ = infoCache.Purge()
 }
 
+// AdminDeleteSubscriptionPlan hard-deletes a subscription plan after confirming
+// it is disabled and has no references from user_subscriptions, redemptions,
+// or pending subscription_orders.
+func AdminDeleteSubscriptionPlan(planId int) (string, error) {
+	if planId <= 0 {
+		return "", errors.New("invalid planId")
+	}
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var plan SubscriptionPlan
+		if err := tx.Where("id = ?", planId).First(&plan).Error; err != nil {
+			return err
+		}
+		if plan.Enabled {
+			return errors.New("请先禁用套餐后再删除")
+		}
+
+		var userSubCount int64
+		if err := tx.Model(&UserSubscription{}).Where("plan_id = ?", planId).Count(&userSubCount).Error; err != nil {
+			return err
+		}
+		var redemptionCount int64
+		if err := tx.Model(&Redemption{}).Where("plan_id = ?", planId).Count(&redemptionCount).Error; err != nil {
+			return err
+		}
+		var pendingOrderCount int64
+		if err := tx.Model(&SubscriptionOrder{}).
+			Where("plan_id = ? AND status = ?", planId, common.TopUpStatusPending).
+			Count(&pendingOrderCount).Error; err != nil {
+			return err
+		}
+		if userSubCount > 0 || redemptionCount > 0 || pendingOrderCount > 0 {
+			return fmt.Errorf("该套餐仍被引用：用户订阅 %d 条，兑换码 %d 条，待完成订单 %d 条，无法删除", userSubCount, redemptionCount, pendingOrderCount)
+		}
+		return tx.Where("id = ?", planId).Delete(&SubscriptionPlan{}).Error
+	})
+	if err != nil {
+		return "", err
+	}
+	InvalidateSubscriptionPlanCache(planId)
+	return "已删除", nil
+}
+
 // Subscription plan
 type SubscriptionPlan struct {
 	Id int `json:"id"`

@@ -228,7 +228,7 @@ const renderPaymentConfig = (text, record, t, enableEpay) => {
   );
 };
 
-const renderOperations = (text, record, { openEdit, setPlanEnabled, t }) => {
+const renderOperations = (text, record, { openEdit, setPlanEnabled, deletePlan, t }) => {
   const isEnabled = record?.plan?.enabled;
 
   const handleToggle = () => {
@@ -247,6 +247,20 @@ const renderOperations = (text, record, { openEdit, setPlanEnabled, t }) => {
         onOk: () => setPlanEnabled(record, true),
       });
     }
+  };
+
+  const handleDelete = () => {
+    const planTitle = record?.plan?.title || '';
+    Modal.confirm({
+      title: t('确认删除'),
+      content: t(
+        '删除套餐「{title}」，此操作不可恢复。仅当套餐已禁用且无用户订阅、兑换码、待完成订单引用时才能删除。',
+        { title: planTitle },
+      ),
+      centered: true,
+      okType: 'danger',
+      onOk: () => deletePlan(record),
+    });
   };
 
   return (
@@ -273,6 +287,15 @@ const renderOperations = (text, record, { openEdit, setPlanEnabled, t }) => {
           {t('启用')}
         </Button>
       )}
+      <Button
+        theme='light'
+        type='danger'
+        size='small'
+        disabled={isEnabled}
+        onClick={handleDelete}
+      >
+        {t('删除')}
+      </Button>
     </Space>
   );
 };
@@ -281,6 +304,7 @@ export const getSubscriptionsColumns = ({
   t,
   openEdit,
   setPlanEnabled,
+  deletePlan,
   enableEpay,
 }) => {
   return [
@@ -349,9 +373,9 @@ export const getSubscriptionsColumns = ({
       title: t('操作'),
       dataIndex: 'operate',
       fixed: 'right',
-      width: 160,
+      width: 220,
       render: (text, record) =>
-        renderOperations(text, record, { openEdit, setPlanEnabled, t }),
+        renderOperations(text, record, { openEdit, setPlanEnabled, deletePlan, t }),
     },
   ];
 };
