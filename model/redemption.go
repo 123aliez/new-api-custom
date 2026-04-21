@@ -44,6 +44,7 @@ type RedeemResult struct {
 	PlanId             int    `json:"plan_id,omitempty"`
 	PlanTitle          string `json:"plan_title,omitempty"`
 	UserSubscriptionId int    `json:"user_subscription_id,omitempty"`
+	InviterReward      int    `json:"inviter_reward,omitempty"`
 }
 
 func fillPlanTitles(redemptions []*Redemption) error {
@@ -230,6 +231,30 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 				Quota: redemption.Quota,
 				Mode:  RedeemModeQuota,
 			}
+			// 邀请人奖励：被邀请人首次额度兑换，邀请人获得 10% 奖励
+			var inviterInfo struct {
+				InviterId   int
+				HasRedeemed bool
+			}
+			if err := tx.Model(&User{}).Where("id = ?", userId).Select("inviter_id, has_redeemed").Scan(&inviterInfo).Error; err == nil {
+				if !inviterInfo.HasRedeemed && inviterInfo.InviterId > 0 {
+					rewardQuota := redemption.Quota / 10
+					if rewardQuota > 0 {
+						if err := tx.Model(&User{}).Where("id = ?", inviterInfo.InviterId).
+							Update("quota", gorm.Expr("quota + ?", rewardQuota)).Error; err != nil {
+							return err
+						}
+						if err := tx.Model(&User{}).Where("id = ?", inviterInfo.InviterId).
+							Update("aff_history_quota", gorm.Expr("aff_history_quota + ?", rewardQuota)).Error; err != nil {
+							return err
+						}
+					}
+					result.InviterReward = rewardQuota
+					if err := tx.Model(&User{}).Where("id = ?", userId).Update("has_redeemed", true).Error; err != nil {
+						return err
+					}
+				}
+			}
 		}
 		redemption.RedeemedTime = common.GetTimestamp()
 		redemption.Status = common.RedemptionCodeStatusUsed
@@ -249,6 +274,13 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 		return result, nil
 	}
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
+	if result.InviterReward > 0 {
+		var inviterId int
+		DB.Model(&User{}).Where("id = ?", userId).Select("inviter_id").Scan(&inviterId)
+		if inviterId > 0 {
+			RecordLog(inviterId, LogTypeTopup, fmt.Sprintf("邀请用户 #%d 首次兑换，获得 %s 奖励", userId, logger.LogQuota(result.InviterReward)))
+		}
+	}
 	return result, nil
 }
 
