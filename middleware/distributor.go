@@ -106,7 +106,7 @@ func Distribute() func(c *gin.Context) {
 							// Affinity points to disabled channel — always evict cache first
 							service.EvictCurrentAffinityCache(c)
 							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
+								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
 								return
 							}
 						} else if usingGroup == "auto" {
