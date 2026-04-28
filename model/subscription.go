@@ -311,6 +311,7 @@ func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 
 type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
+	PlanTitle    string            `json:"plan_title"`
 }
 
 func calcPlanEndTime(start time.Time, plan *SubscriptionPlan) (int64, error) {
@@ -763,8 +764,51 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 		return "", err
 	}
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		_, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
-		return err
+			var existingSub UserSubscription
+			if tx.Where("user_id = ? AND status = ?", userId, "active").First(&existingSub).Error == nil {
+			// 创建新订阅接在旧订阅后面
+			start := time.Unix(existingSub.EndTime, 0)
+			endUnix, err := calcPlanEndTime(start, plan)
+			if err != nil {
+				return err
+			}
+			upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
+			prevGroup := ""
+			if upgradeGroup != "" {
+				currentGroup, err := getUserGroupByIdTx(tx, userId)
+				if err != nil {
+					return err
+				}
+				if currentGroup != upgradeGroup {
+					prevGroup = currentGroup
+				}
+			}
+			resetBase := start
+			nextReset := calcNextResetTime(resetBase, plan, endUnix)
+			lastReset := int64(0)
+			if nextReset > 0 {
+				lastReset = start.Unix()
+			}
+			newSub := &UserSubscription{
+				UserId:        userId,
+				PlanId:        plan.Id,
+				AmountTotal:   plan.TotalAmount,
+				AmountUsed:    0,
+				StartTime:     start.Unix(),
+				EndTime:       endUnix,
+				Status:        "active",
+				Source:        "admin",
+				LastResetTime: lastReset,
+				NextResetTime: nextReset,
+				UpgradeGroup:  upgradeGroup,
+				PrevUserGroup: prevGroup,
+				CreatedAt:     common.GetTimestamp(),
+				UpdatedAt:     common.GetTimestamp(),
+			}
+			return tx.Create(newSub).Error
+			}
+			_, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
+			return err
 	})
 	if err != nil {
 		return "", err
@@ -815,7 +859,7 @@ func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	}
 	now := common.GetTimestamp()
 	var subs []UserSubscription
-	err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+	err := DB.Where("user_id = ? AND status = ? AND start_time <= ? AND end_time > ?", userId, "active", now, now).
 		Order("end_time desc, id desc").
 		Find(&subs).Error
 	if err != nil {
@@ -833,7 +877,7 @@ func HasActiveUserSubscription(userId int) (bool, error) {
 	now := common.GetTimestamp()
 	var count int64
 	if err := DB.Model(&UserSubscription{}).
-		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Where("user_id = ? AND status = ? AND start_time <= ? AND end_time > ?", userId, "active", now, now).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -859,11 +903,29 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 	if len(subs) == 0 {
 		return []SubscriptionSummary{}
 	}
+	// 查询关联的套餐标题（不过滤 enabled，禁用的套餐也要显示）
+	planIds := make([]int, 0)
+	seen := make(map[int]struct{})
+	for _, sub := range subs {
+		if _, ok := seen[sub.PlanId]; !ok {
+			seen[sub.PlanId] = struct{}{}
+			planIds = append(planIds, sub.PlanId)
+		}
+	}
+	titleMap := make(map[int]string, len(planIds))
+	if len(planIds) > 0 {
+		var plans []SubscriptionPlan
+		DB.Select("id, title").Where("id IN ?", planIds).Find(&plans)
+		for _, p := range plans {
+			titleMap[p.Id] = p.Title
+		}
+	}
 	result := make([]SubscriptionSummary, 0, len(subs))
 	for _, sub := range subs {
 		subCopy := sub
 		result = append(result, SubscriptionSummary{
 			Subscription: &subCopy,
+			PlanTitle:    titleMap[sub.PlanId],
 		})
 	}
 	return result
@@ -1088,6 +1150,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 		}
 		return nil
 	}
+	sub.AmountTotal = plan.TotalAmount
 	sub.AmountUsed = 0
 	sub.LastResetTime = base.Unix()
 	sub.NextResetTime = next
@@ -1133,7 +1196,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 
 		var subs []UserSubscription
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").
-			Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+			Where("user_id = ? AND status = ? AND start_time <= ? AND end_time > ?", userId, "active", now, now).
 			Order("end_time asc, id asc").
 			Find(&subs).Error; err != nil {
 			return errors.New("no active subscription")

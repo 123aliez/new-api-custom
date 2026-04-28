@@ -45,6 +45,12 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
+	// 图片生成模型兼容：当 chat completions 请求的模型是图片生成模型时，
+	// 自动提取 prompt，转发到 /v1/images/generations，并将结果包装为 chat completions 格式返回。
+	if info.RelayMode == relayconstant.RelayModeChatCompletions && common.IsImageGenerationModel(info.OriginModelName) {
+		return chatCompletionsViaImageGeneration(c, info, request)
+	}
+
 	includeUsage := true
 	// 判断用户是否需要返回使用情况
 	if request.StreamOptions != nil {

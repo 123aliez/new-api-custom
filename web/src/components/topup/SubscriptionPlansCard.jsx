@@ -388,14 +388,17 @@ const SubscriptionPlansCard = ({
                         ? Math.max(0, totalAmount - usedAmount)
                         : 0;
                     const planTitle =
-                      planTitleMap.get(subscription?.plan_id) || '';
+                      planTitleMap.get(subscription?.plan_id) || sub?.plan_title || '';
                     const remainDays = getRemainingDays(sub);
                     const usagePercent = getUsagePercent(sub);
                     const now = Date.now() / 1000;
                     const isExpired = (subscription?.end_time || 0) < now;
                     const isCancelled = subscription?.status === 'cancelled';
+                    const isPending =
+                      subscription?.status === 'active' &&
+                      (subscription?.start_time || 0) > now;
                     const isActive =
-                      subscription?.status === 'active' && !isExpired;
+                      subscription?.status === 'active' && !isExpired && !isPending;
 
                     return (
                       <div key={subscription?.id || subIndex}>
@@ -416,6 +419,14 @@ const SubscriptionPlansCard = ({
                               >
                                 {t('生效')}
                               </Tag>
+                            ) : isPending ? (
+                              <Tag
+                                color='blue'
+                                size='small'
+                                shape='circle'
+                              >
+                                {t('待生效')}
+                              </Tag>
                             ) : isCancelled ? (
                               <Tag color='white' size='small' shape='circle'>
                                 {t('已作废')}
@@ -431,18 +442,32 @@ const SubscriptionPlansCard = ({
                               {t('剩余')} {remainDays} {t('天')}
                             </span>
                           )}
+                          {isPending && (
+                            <span className='text-blue-500'>
+                              {Math.max(1, Math.ceil(((subscription?.start_time || 0) - now) / 86400))} {t('天后开始')}
+                            </span>
+                          )}
                         </div>
                         <div className='text-xs text-gray-500 mb-2'>
-                          {isActive
-                            ? t('至')
-                            : isCancelled
-                              ? t('作废于')
-                              : t('过期于')}{' '}
+                          {isPending
+                            ? t('开始于')
+                            : isActive
+                              ? t('至')
+                              : isCancelled
+                                ? t('作废于')
+                                : t('过期于')}{' '}
                           {new Date(
-                            (subscription?.end_time || 0) * 1000,
+                            (isPending ? subscription?.start_time : subscription?.end_time || 0) * 1000,
                           ).toLocaleString()}
                         </div>
-                        {isActive && subscription?.next_reset_time > 0 && (
+                        {isPending && (
+                          <div className='text-xs text-gray-500 mb-2'>
+                            {t('至')} {new Date(
+                              (subscription?.end_time || 0) * 1000,
+                            ).toLocaleString()}
+                          </div>
+                        )}
+                        {(isActive || isPending) && subscription?.next_reset_time > 0 && (
                           <div className='text-xs text-gray-500 mb-2'>
                             {t('下一次重置')}:{' '}
                             {new Date(

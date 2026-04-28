@@ -311,6 +311,9 @@ docker run --name new-api -d --restart always \
 | `SESSION_SECRET` | 會話密鑰（多機部署必須）                                                 | - |
 | `CRYPTO_SECRET` | 加密密鑰（Redis 必須）                                               | - |
 | `SQL_DSN` | 資料庫連接字符串                                                     | - |
+| `SQL_MAX_IDLE_CONNS` | 資料庫最大空閒連接數                                               | `20` |
+| `SQL_MAX_OPEN_CONNS` | 資料庫最大打開連接數                                               | `80` |
+| `SQL_MAX_LIFETIME` | 資料庫連接最大生命週期（秒）                                         | `600` |
 | `REDIS_CONN_STRING` | Redis 連接字符串                                                  | - |
 | `STREAMING_TIMEOUT` | 流式超時時間（秒）                                                    | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | 流式掃描器單行最大緩衝（MB），圖像生成等超大 `data:` 片段（如 4K 圖片 base64）需適當調大 | `64` |

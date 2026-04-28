@@ -289,6 +289,34 @@ export const useRedemptionsData = () => {
     });
   };
 
+  const deleteSelectedRedemptions = async () => {
+    if (selectedKeys.length === 0) {
+      showError(t('请先选择要删除的兑换码！'));
+      return;
+    }
+    Modal.confirm({
+      title: t('确定删除所选兑换码？'),
+      content: t('将删除选中的 {{count}} 条兑换码，此操作不可撤销。', { count: selectedKeys.length }),
+      onOk: async () => {
+        setLoading(true);
+        try {
+          const ids = selectedKeys.map((r) => r.id);
+          const res = await API.post('/api/redemption/batch', { ids });
+          if (res?.data?.success) {
+            showSuccess(t('已删除 {{count}} 条兑换码', { count: res.data.data || ids.length }));
+            await refresh();
+          } else {
+            showError(res?.data?.message || t('删除失败'));
+          }
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
   // Close edit modal
   const closeEdit = () => {
     setShowEdit(false);
@@ -370,6 +398,7 @@ export const useRedemptionsData = () => {
     // Batch operations
     batchCopyRedemptions,
     batchDeleteRedemptions,
+    deleteSelectedRedemptions,
 
     // Translation function
     t,

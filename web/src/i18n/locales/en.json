@@ -3821,5 +3821,8 @@
   "有余额": "With Balance",
   "无活跃": "Inactive",
   "错误信息": "Error",
-  "充值链接，跳转到外部店铺": "Top up link, redirects to external shop"
+  "充值链接，跳转到外部店铺": "Top up link, redirects to external shop",
+  "待生效": "Pending",
+  "天后开始": "days until start",
+  "开始于": "Starts"
 }

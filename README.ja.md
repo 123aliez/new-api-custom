@@ -312,7 +312,10 @@ docker run --name new-api -d --restart always \
 |--------|------|--------|
 | `SESSION_SECRET` | セッションシークレット（マルチマシンデプロイに必須） | - |
 | `CRYPTO_SECRET` | 暗号化シークレット（Redisに必須） | - |
-| `SQL_DSN** | データベース接続文字列 | - |
+| `SQL_DSN` | データベース接続文字列 | - |
+| `SQL_MAX_IDLE_CONNS` | DB の最大アイドル接続数 | `20` |
+| `SQL_MAX_OPEN_CONNS` | DB の最大オープン接続数 | `80` |
+| `SQL_MAX_LIFETIME` | DB 接続の最大存続時間（秒） | `600` |
 | `REDIS_CONN_STRING` | Redis接続文字列 | - |
 | `STREAMING_TIMEOUT` | ストリーミング応答のタイムアウト時間（秒） | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | ストリームスキャナの1行あたりバッファ上限（MB）。4K画像など巨大なbase64 `data:` ペイロードを扱う場合は値を増加させてください | `64` |

@@ -48,10 +48,6 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 				logger.FormatQuota(actualQuota),
 				logger.FormatQuota(preConsumed),
 			))
-		} else {
-			logger.LogInfo(ctx, fmt.Sprintf("预扣费与实际消耗一致，无需调整：%s（按次计费）",
-				logger.FormatQuota(actualQuota),
-			))
 		}
 
 		if err := relayInfo.Billing.Settle(actualQuota); err != nil {

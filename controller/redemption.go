@@ -226,6 +226,26 @@ func DeleteInvalidRedemption(c *gin.Context) {
 	return
 }
 
+func DeleteRedemptionsBatch(c *gin.Context) {
+	var body struct {
+		Ids []int `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.Ids) == 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	count, err := model.BatchDeleteRedemptions(body.Ids)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    count,
+	})
+}
+
 func validateExpiredTime(c *gin.Context, expired int64) (bool, string) {
 	if expired != 0 && expired < common.GetTimestamp() {
 		return false, i18n.T(c, i18n.MsgRedemptionExpireTimeInvalid)

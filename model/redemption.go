@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -133,9 +134,9 @@ func SearchRedemptions(keyword string, startIdx int, num int) (redemptions []*Re
 
 	// Only try to convert to ID if the string represents a valid integer
 	if id, err := strconv.Atoi(keyword); err == nil {
-		query = query.Where("id = ? OR name LIKE ?", id, keyword+"%")
+		query = query.Where("id = ? OR name LIKE ? OR `key` LIKE ?", id, keyword+"%", keyword+"%")
 	} else {
-		query = query.Where("name LIKE ?", keyword+"%")
+		query = query.Where("name LIKE ? OR `key` LIKE ?", keyword+"%", keyword+"%")
 	}
 
 	// Get total count
@@ -206,11 +207,58 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 			if err != nil {
 				return err
 			}
-			sub, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "redemption")
-			if err != nil {
-				return err
+			// 如果已有活跃订阅，创建新订阅接在后面
+			var sub *UserSubscription
+			var existingSub UserSubscription
+			if tx.Where("user_id = ? AND status = ?", userId, "active").First(&existingSub).Error == nil {
+				// 新订阅从旧订阅结束时开始
+				start := time.Unix(existingSub.EndTime, 0)
+				endUnix, err := calcPlanEndTime(start, plan)
+				if err != nil {
+					return err
+				}
+				upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
+				prevGroup := ""
+				if upgradeGroup != "" {
+					currentGroup, err := getUserGroupByIdTx(tx, userId)
+					if err != nil {
+						return err
+					}
+					if currentGroup != upgradeGroup {
+						prevGroup = currentGroup
+					}
+				}
+				resetBase := start
+				nextReset := calcNextResetTime(resetBase, plan, endUnix)
+				lastReset := int64(0)
+				if nextReset > 0 {
+					lastReset = start.Unix()
+				}
+				sub = &UserSubscription{
+					UserId:        userId,
+					PlanId:        plan.Id,
+					AmountTotal:   plan.TotalAmount,
+					AmountUsed:    0,
+					StartTime:     start.Unix(),
+					EndTime:       endUnix,
+					Status:        "active",
+					Source:        "redemption",
+					LastResetTime: lastReset,
+					NextResetTime: nextReset,
+					UpgradeGroup:  upgradeGroup,
+					PrevUserGroup: prevGroup,
+					CreatedAt:     common.GetTimestamp(),
+					UpdatedAt:     common.GetTimestamp(),
+				}
+				if err := tx.Create(sub).Error; err != nil {
+					return err
+				}
+			} else {
+				sub, err = CreateUserSubscriptionFromPlanTx(tx, userId, plan, "redemption")
+				if err != nil {
+					return err
+				}
 			}
-			redemption.UserSubscriptionId = sub.Id
 			cacheGroup = strings.TrimSpace(plan.UpgradeGroup)
 			result = &RedeemResult{
 				Quota:              0,
@@ -242,7 +290,7 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 							return err
 						}
 						if err := tx.Model(&User{}).Where("id = ?", inviterInfo.InviterId).
-							Update("aff_history_quota", gorm.Expr("aff_history_quota + ?", rewardQuota)).Error; err != nil {
+							Update("aff_history", gorm.Expr("aff_history + ?", rewardQuota)).Error; err != nil {
 							return err
 						}
 					}
@@ -320,6 +368,11 @@ func DeleteRedemptionById(id int) (err error) {
 func DeleteInvalidRedemptions() (int64, error) {
 	now := common.GetTimestamp()
 	result := DB.Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)", []int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now).Delete(&Redemption{})
+	return result.RowsAffected, result.Error
+}
+
+func BatchDeleteRedemptions(ids []int) (int64, error) {
+	result := DB.Where("id IN ?", ids).Delete(&Redemption{})
 	return result.RowsAffected, result.Error
 }
 

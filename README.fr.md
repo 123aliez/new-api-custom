@@ -311,6 +311,9 @@ docker run --name new-api -d --restart always \
 | `SESSION_SECRET` | Secret de session (requis pour le déploiement multi-machines) |
 | `CRYPTO_SECRET` | Secret de chiffrement (requis pour Redis) | - |
 | `SQL_DSN` | Chaine de connexion à la base de données | - |
+| `SQL_MAX_IDLE_CONNS` | Nombre max de connexions inactives à la base | `20` |
+| `SQL_MAX_OPEN_CONNS` | Nombre max de connexions ouvertes à la base | `80` |
+| `SQL_MAX_LIFETIME` | Durée de vie max d'une connexion BD (secondes) | `600` |
 | `REDIS_CONN_STRING` | Chaine de connexion Redis | - |
 | `STREAMING_TIMEOUT` | Délai d'expiration du streaming (secondes) | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | Taille max du buffer par ligne (Mo) pour le scanner SSE ; à augmenter quand les sorties image/base64 sont très volumineuses (ex. images 4K) | `64` |
