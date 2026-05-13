@@ -186,7 +186,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.CompletionTokens = usage.CompletionTokens
 
 	if relayInfo.UserId == 106 {
-		factor := float64(11) / float64(10)
+		factor := float64(12) / float64(10)
 		summary.PromptTokens = int(float64(summary.PromptTokens) * factor)
 		summary.CompletionTokens = int(float64(summary.CompletionTokens) * factor)
 	}
