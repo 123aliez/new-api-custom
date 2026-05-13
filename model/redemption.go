@@ -134,9 +134,9 @@ func SearchRedemptions(keyword string, startIdx int, num int) (redemptions []*Re
 
 	// Only try to convert to ID if the string represents a valid integer
 	if id, err := strconv.Atoi(keyword); err == nil {
-		query = query.Where("id = ? OR name LIKE ? OR `key` LIKE ?", id, keyword+"%", keyword+"%")
+		query = query.Where("id = ? OR name LIKE ? OR \"key\" LIKE ?", id, keyword+"%", keyword+"%")
 	} else {
-		query = query.Where("name LIKE ? OR `key` LIKE ?", keyword+"%", keyword+"%")
+		query = query.Where("name LIKE ? OR \"key\" LIKE ?", keyword+"%", keyword+"%")
 	}
 
 	// Get total count

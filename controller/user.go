@@ -1075,12 +1075,37 @@ func GetUserStats(c *gin.Context) {
 		"active", now,
 	).Scan(&activeUsers)
 
+	type planUserCount struct {
+		PlanId    int    `json:"plan_id"`
+		PlanTitle string `json:"plan_title"`
+		UserCount int64  `json:"user_count"`
+	}
+	var planCounts []planUserCount
+	model.DB.Raw(
+		"SELECT us.plan_id, sp.title AS plan_title, COUNT(DISTINCT us.user_id) AS user_count FROM user_subscriptions us JOIN subscription_plans sp ON sp.id = us.plan_id WHERE us.status = ? AND us.end_time > ? GROUP BY us.plan_id, sp.title ORDER BY user_count DESC",
+		"active", now,
+	).Scan(&planCounts)
+
+	var expiringPlanCounts []planUserCount
+	model.DB.Raw(
+		"SELECT us.plan_id, sp.title AS plan_title, COUNT(DISTINCT us.user_id) AS user_count FROM user_subscriptions us JOIN subscription_plans sp ON sp.id = us.plan_id WHERE us.status = ? AND us.end_time > ? AND us.end_time <= ? GROUP BY us.plan_id, sp.title ORDER BY user_count DESC",
+		"active", now, now+7*86400,
+	).Scan(&expiringPlanCounts)
+
+	var expiringSoon int64
+	for _, p := range expiringPlanCounts {
+		expiringSoon += p.UserCount
+	}
+
 	common.ApiSuccess(c, gin.H{
-		"total_users":             totalUsers,
-		"active_users":            activeUsers,
-		"inactive_users":          totalUsers - activeUsers,
-		"users_with_balance":      usersWithBalance,
-		"users_with_subscription": usersWithActiveSub,
+		"total_users":               totalUsers,
+		"active_users":              activeUsers,
+		"inactive_users":            totalUsers - activeUsers,
+		"users_with_balance":        usersWithBalance,
+		"users_with_subscription":   usersWithActiveSub,
+		"plan_user_counts":          planCounts,
+		"expiring_soon_count":       expiringSoon,
+		"expiring_plan_user_counts": expiringPlanCounts,
 	})
 }
 

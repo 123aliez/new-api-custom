@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Tag, Typography } from '@douyinfe/semi-ui';
+import { Dropdown, Tag, Typography } from '@douyinfe/semi-ui';
 import { IconUserAdd } from '@douyinfe/semi-icons';
 import CompactModeToggle from '../../common/ui/CompactModeToggle';
 import { API } from '../../../helpers';
@@ -68,6 +68,34 @@ const UsersDescription = ({ compactMode, setCompactMode, t }) => {
           <Tag color='red' size='large' shape='circle'>
             {t('无活跃')}: {stats.inactive_users}
           </Tag>
+        </div>
+      )}
+      {stats?.plan_user_counts?.length > 0 && (
+        <div className='flex flex-wrap gap-3 items-center'>
+          {stats.plan_user_counts.map((p) => (
+            <Tag key={p.plan_id} color='violet' size='large' shape='circle'>
+              {p.plan_title}: {p.user_count}人
+            </Tag>
+          ))}
+          {stats.expiring_soon_count > 0 && (
+            <Dropdown
+              trigger='hover'
+              position='bottom'
+              render={
+                <Dropdown.Menu>
+                  {(stats.expiring_plan_user_counts || []).map((p) => (
+                    <Dropdown.Item key={p.plan_id} disabled>
+                      {p.plan_title}: {p.user_count}人
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              }
+            >
+              <Tag color='red' size='large' shape='circle' style={{ cursor: 'pointer' }}>
+                7天到期: {stats.expiring_soon_count}人 ▾
+              </Tag>
+            </Dropdown>
+          )}
         </div>
       )}
     </div>
